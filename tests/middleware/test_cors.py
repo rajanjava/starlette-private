@@ -625,3 +625,41 @@ def test_cors_vary_origin_with_gzip(test_client_factory: TestClientFactory) -> N
         "Accept-Encoding",
         "Origin",
     }
+
+
+def test_cors_preflight_allows_empty_elements_in_request_headers(
+    test_client_factory: TestClientFactory,
+) -> None:
+    def homepage(request: Request) -> PlainTextResponse:
+        return PlainTextResponse("OK")
+
+    app = Starlette(
+        routes=[Route("/", endpoint=homepage)],
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=["https://example.org"],
+                allow_headers=["X-Token", "Authorization"],
+            )
+        ],
+    )
+
+    client = test_client_factory(app)
+
+    # Preflight requests containing empty elements or whitespace (per RFC 9110 Section 5.6.1.2)
+    test_headers = [
+        "X-Token, , Authorization",
+        "X-Token, Authorization, ",
+        ", X-Token, Authorization",
+        "X-Token,   ,   Authorization",
+    ]
+    for requested_headers in test_headers:
+        headers = {
+            "Origin": "https://example.org",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": requested_headers,
+        }
+        response = client.options("/", headers=headers)
+        assert response.status_code == 200
+        assert response.text == "OK"
+
