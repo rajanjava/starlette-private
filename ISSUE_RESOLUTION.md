@@ -110,6 +110,11 @@ tests/middleware/test_cors.py:663: AssertionError
 
 ---
 
+## Solution Approach
+1. **Standards-First Diagnosis:** Verified the HTTP specification (RFC 9110 §5.6.1.2), which explicitly states that recipients MUST parse and ignore empty elements in comma-separated header lists (e.g., `Access-Control-Request-Headers: , content-type, `).
+2. **Minimal, Targeted Sanitization:** Rather than relaxing CORS allow-list validation globally (which would weaken security), filter out empty/whitespace-only tokens immediately after splitting `Access-Control-Request-Headers` in `CORSMiddleware.preflight_response`.
+3. **TDD & Regression Safety:** Added a dedicated test covering leading, trailing, consecutive, and whitespace-only commas before applying the fix, then verified the full CORS middleware test suite passes without affecting disallowed-header rejection.
+
 ## 💡 Solution & Implementation
 
 We updated the list comprehension to strip each element and filter out empty strings (`if h.strip()`) before lowercasing and checking against `self.allow_headers`:
